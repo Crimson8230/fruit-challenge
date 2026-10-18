@@ -1,6 +1,6 @@
 # Fruit Challenge
 
-A small browser game: read four fruits moving together and choose them in order.
+A small browser game: read four fruits moving together and choose them from right to left.
 
 ## Install and run
 
@@ -15,12 +15,15 @@ Open the local address printed by the development server.
 
 ## How to play
 
-Select **Start**. The four fruits move together from left to right at a steady speed. Use the
-Apple, Banana, Cherry, and Grape buttons to enter them from right to left. The buttons work
-immediately, even while the row enters. If the sequence is unfinished when the row leaves,
-an overlay counts down five seconds to finish. Each correct choice adds one point. A wrong
-choice or expired time ends the round; four correct choices win. Select **Play again** for a
-new sequence.
+Select **Start** to begin round 1 with 0 points and three lives. The four fruits move together
+from left to right at a steady speed. Use the Apple, Banana, Cherry, and Grape buttons to
+choose them from right to left. The buttons work immediately, even while the row enters.
+Each correct choice adds 10 points. A wrong choice or a fruit missed at the right boundary
+costs one life. Finish all four positions without missing a fruit for a 25-point bonus.
+Rounds start automatically while lives remain, keeping your score and lives. At zero lives,
+**Game Over** shows your final score and round; select **Play Again** for a fresh game.
+With reduced motion enabled, the row stays still for three seconds before pending fruits
+are counted as missed.
 
 ## Checks
 
@@ -31,10 +34,9 @@ npm run build
 
 ## Vibe Coding experience
 
-Spec-Kit defined and revised the first playable version. The initial AI-generated game showed
-fruits one at a time, which did not match the intended group movement or input timing. Later
-corrections reversed the input order, replaced three motion speeds with one linear crossing,
-enabled input from round start, and added a five-second countdown after exit. Fifteen focused
-rule tests and the production build pass. Browser and five-person checks are still pending.
-Prompts, attempts, corrections, and lessons are recorded in the
-[development log](specs/001-core-fruit-input/development-log.md).
+Spec-Kit guided the initial playable version and the scoring, lives, and Game Over update.
+Feature 002 kept the pure game rules separate from browser movement and replaced the old
+post-exit countdown with per-fruit boundary misses. All 16 rule tests and the production
+build pass. Browser interaction and the five-player understanding check are still pending.
+The [Feature 002 development log](specs/002-scoring-lives-game-over/development-log.md)
+records the prompts, observed results, remaining checks, corrections, and lessons.

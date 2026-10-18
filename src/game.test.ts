@@ -1,192 +1,182 @@
 import { describe, expect, it } from 'vitest';
 import {
   FRUITS,
-  createReadyRound,
-  expireRound,
+  chooseFruit,
+  createReadyGame,
   generateSequence,
-  passRow,
-  replayRound,
-  revealRow,
-  secondsRemaining,
-  selectFruit,
-  startRound,
+  missFruit,
+  startGame,
+  type Fruit,
+  type Game,
 } from './game';
 
-describe('sequence generation', () => {
-  it('creates exactly four valid fruits in sampled order', () => {
+const sequence = ['apple', 'banana', 'cherry', 'grape'] as const;
+
+function chooseAll(game: Game, fruits: readonly Fruit[] = [...sequence].reverse()): Game {
+  return fruits.reduce((current, fruit) => chooseFruit(current, fruit, () => 0), game);
+}
+
+describe('fruit sequence', () => {
+  it('generates four valid positions and allows repeated fruits', () => {
     const draws = [0, 0.25, 0.5, 0.75];
     let index = 0;
     expect(generateSequence(() => draws[index++])).toEqual(FRUITS);
+    expect(generateSequence(() => 0)).toEqual(Array(4).fill('apple'));
+    expect(() => generateSequence(() => 1)).toThrow(RangeError);
+
+    const game = startGame(() => 0, ['apple', 'apple', 'banana', 'apple']);
+    expect(game.round?.positions.map(({ index, fruit, status }) => ({ index, fruit, status })))
+      .toEqual([
+        { index: 0, fruit: 'apple', status: 'pending' },
+        { index: 1, fruit: 'apple', status: 'pending' },
+        { index: 2, fruit: 'banana', status: 'pending' },
+        { index: 3, fruit: 'apple', status: 'pending' },
+      ]);
   });
 
-  it('allows repeated fruit types', () => {
-    expect(generateSequence(() => 0)).toEqual(Array(4).fill('apple'));
+  it('rejects a sequence that does not contain exactly four valid fruits', () => {
+    expect(() => startGame(() => 0, ['apple'])).toThrow();
+    expect(() => startGame(() => 0, ['apple', 'banana', 'cherry', 'pear' as Fruit])).toThrow();
   });
 });
 
-describe('round state', () => {
-  const sequence = ['apple', 'banana', 'cherry', 'grape'] as const;
-
-  it('ignores ready input but accepts and scores input as soon as a round starts', () => {
-    const ready = createReadyRound();
-    expect(ready.phase).toBe('ready');
-    expect(selectFruit(ready, 'grape', 0)).toEqual(ready);
-
-    const approaching = startRound(() => 0, sequence);
-    expect(approaching.phase).toBe('approaching');
-    expect(approaching.sequence).toEqual(sequence);
-    expect(approaching.deadlineAtMs).toBeNull();
-    const selected = selectFruit(approaching, 'grape', 1);
-    expect(selected.correctCount).toBe(1);
-    expect(selected.feedback).toBe('correct');
-    expect(selected.phase).toBe('approaching');
-    expect(passRow(approaching, 100)).toEqual(approaching);
+describe('scoring and lives', () => {
+  it('starts at zero points, three lives and round one, with input active immediately', () => {
+    const ready = createReadyGame();
+    expect(ready.status).toBe('ready');
+    expect(chooseFruit(ready, 'grape')).toEqual(ready);
+    const game = startGame(() => 0, sequence);
+    expect(game.status).toBe('playing');
+    expect([game.score, game.lives, game.roundNumber]).toEqual([0, 3, 1]);
+    expect(chooseFruit(game, 'grape').score).toBe(10);
   });
 
-  it('fails immediately on a wrong choice before the row is fully visible', () => {
-    const failed = selectFruit(startRound(() => 0, sequence), 'apple', 1);
-    expect(failed.phase).toBe('failure');
-    expect(failed.correctCount).toBe(0);
-    expect(failed.feedback).toBe('incorrect');
-    expect(failed.deadlineAtMs).toBeNull();
-    expect(revealRow(failed)).toEqual(failed);
+  it('scores only the next rightmost pending position, including repeated types', () => {
+    let game = startGame(() => 0, ['apple', 'banana', 'apple', 'apple']);
+    game = chooseFruit(game, 'apple');
+    expect(game.round?.positions[3].status).toBe('selected');
+    expect(game.score).toBe(10);
+    game = chooseFruit(game, 'apple');
+    expect(game.round?.positions[2].status).toBe('selected');
+    expect(game.score).toBe(20);
+    game = chooseFruit(game, 'apple');
+    expect(game.score).toBe(20);
+    expect(game.lives).toBe(2);
+    expect(game.round?.positions[1].status).toBe('pending');
   });
 
-  it('keeps input active at full visibility and starts the deadline only after full exit', () => {
-    const approaching = startRound(() => 0, sequence);
-    const moving = revealRow(approaching);
-    expect(moving.phase).toBe('moving');
-    expect(moving.deadlineAtMs).toBeNull();
-    expect(revealRow(moving)).toEqual(moving);
-    expect(selectFruit(moving, 'grape', 50).correctCount).toBe(1);
-
-    const passed = passRow(moving, 100);
-    expect(passed.phase).toBe('passed');
-    expect(passed.deadlineAtMs).toBe(5100);
-    expect(passRow(passed, 200)).toEqual(passed);
-    expect(selectFruit(passed, 'grape', 101).correctCount).toBe(1);
+  it('deducts exactly one life for a wrong choice while keeping the required fruit', () => {
+    const game = startGame(() => 0, sequence);
+    const wrong = chooseFruit(game, 'apple');
+    expect([wrong.score, wrong.lives, wrong.feedback]).toEqual([0, 2, 'incorrect']);
+    expect(wrong.round?.positions.map((position) => position.status)).toEqual(Array(4).fill('pending'));
+    expect(chooseFruit(wrong, 'grape').score).toBe(10);
   });
 
-  it('rejects leftmost-first input in approaching, moving, and passed phases', () => {
-    const approaching = startRound(() => 0, sequence);
-    const moving = revealRow(approaching);
-    for (const round of [approaching, moving, passRow(moving, 100)]) {
-      const failed = selectFruit(round, 'apple', 101);
-      expect(failed.phase).toBe('failure');
-      expect(failed.correctCount).toBe(0);
-      expect(failed.feedback).toBe('incorrect');
+  it('deducts exactly one life per indexed miss and cannot charge a position twice', () => {
+    const game = startGame(() => 0, sequence);
+    const missed = missFruit(game, 0);
+    expect([missed.score, missed.lives, missed.feedback]).toEqual([0, 2, 'missed']);
+    expect(missed.round?.positions[0].status).toBe('missed');
+    expect(missFruit(missed, 0)).toBe(missed);
+    const selected = chooseFruit(missed, 'grape');
+    expect(missFruit(selected, 3)).toBe(selected);
+  });
+
+  it('awards 40 selection points plus the 25-point clean-round bonus once', () => {
+    let game = startGame(() => 0, sequence);
+    for (const [index, fruit] of ([...sequence].reverse() as Fruit[]).entries()) {
+      game = chooseFruit(game, fruit, () => 0);
+      expect(game.score).toBe(index === 3 ? 65 : (index + 1) * 10);
+    }
+    expect([game.roundNumber, game.lives, game.feedback]).toEqual([2, 3, 'round-complete']);
+    expect(game.round?.positions.every((position) => position.status === 'pending')).toBe(true);
+    expect(game.round?.positions.map((position) => position.fruit)).toEqual(Array(4).fill('apple'));
+    expect(missFruit(game, 99)).toBe(game);
+    expect(game.score).toBe(65);
+  });
+
+  it('keeps the clean-round bonus after a wrong press if no fruit is missed', () => {
+    const wrong = chooseFruit(startGame(() => 0, sequence), 'apple');
+    const next = chooseAll(wrong);
+    expect([next.score, next.lives, next.roundNumber]).toEqual([65, 2, 2]);
+  });
+
+  it('starts the next round without a bonus when a position was missed', () => {
+    let game = missFruit(startGame(() => 0, sequence), 3);
+    game = chooseAll(game, ['cherry', 'banana', 'apple']);
+    expect([game.score, game.lives, game.roundNumber, game.feedback]).toEqual([30, 2, 2, 'round-missed']);
+  });
+
+  it('starts a new round when all remaining positions are missed and a life remains', () => {
+    let game = chooseAll(startGame(() => 0, sequence), ['grape', 'cherry']);
+    game = missFruit(game, 0);
+    game = missFruit(game, 1, () => 0.75);
+    expect([game.score, game.lives, game.roundNumber, game.feedback]).toEqual([20, 1, 2, 'round-missed']);
+    expect(game.round?.positions.map((position) => position.fruit)).toEqual(Array(4).fill('grape'));
+  });
+});
+
+describe('terminal state and restart', () => {
+  it.each(['wrong choice', 'missed fruit'])('enters Game Over immediately after the final life: %s', (cause) => {
+    let game = startGame(() => 0, sequence);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      game = cause === 'wrong choice' ? chooseFruit(game, 'apple') : missFruit(game, attempt);
+    }
+    expect([game.status, game.lives, game.roundNumber, game.score]).toEqual(['game-over', 0, 1, 0]);
+    const final = game;
+    for (let event = 0; event < 10; event += 1) {
+      expect(chooseFruit(final, 'grape')).toBe(final);
+      expect(missFruit(final, event % 4)).toBe(final);
     }
   });
 
-  it('scores four ordered choices and succeeds before the row exits', () => {
-    let round = startRound(() => 0, sequence);
-    [...sequence].reverse().forEach((fruit, index) => {
-      round = selectFruit(round, fruit, index);
-      expect(round.correctCount).toBe(index + 1);
-      expect(round.feedback).toBe('correct');
-      expect(round.phase).toBe(index === 3 ? 'success' : 'approaching');
-    });
-    expect(round.deadlineAtMs).toBeNull();
-    expect(selectFruit(round, 'apple', 5)).toEqual(round);
-    expect(passRow(round, 100)).toEqual(round);
+  it('restarts with fresh values and no old position state', () => {
+    const old = chooseFruit(startGame(() => 0, sequence), 'grape');
+    const fresh = startGame(() => 0.75);
+    expect([fresh.status, fresh.score, fresh.lives, fresh.roundNumber, fresh.feedback])
+      .toEqual(['playing', 0, 3, 1, null]);
+    expect(fresh.round?.positions.map((position) => position.fruit)).toEqual(Array(4).fill('grape'));
+    expect(fresh.round?.positions.every((position) => position.status === 'pending')).toBe(true);
+    expect(old.score).toBe(10);
   });
+});
 
-  it('accepts the fourth correct choice just before expiry', () => {
-    let round = revealRow(startRound(() => 0, sequence));
-    for (const fruit of ['grape', 'cherry', 'banana'] as const) {
-      round = selectFruit(round, fruit, 500);
+describe('acceptance samples', () => {
+  it('checks 20 correct, wrong, and missed events without cross-game leakage', () => {
+    for (let sample = 0; sample < 20; sample += 1) {
+      const start = startGame(() => 0, sequence);
+      const correct = chooseFruit(start, 'grape');
+      expect(correct.score - start.score).toBe(10);
+      const wrong = chooseFruit(start, 'apple');
+      expect([wrong.score - start.score, start.lives - wrong.lives]).toEqual([0, 1]);
+      const missed = missFruit(start, 0);
+      expect([missed.score - start.score, start.lives - missed.lives]).toEqual([0, 1]);
     }
-    round = passRow(round, 1000);
-    expect(round.deadlineAtMs).toBe(6000);
-    round = selectFruit(round, 'apple', 5999);
-    expect(round.phase).toBe('success');
-    expect(round.correctCount).toBe(4);
-    expect(expireRound(round, 6000)).toEqual(round);
   });
 
-  it('expires before evaluating a choice at the exact deadline', () => {
-    let round = passRow(revealRow(startRound(() => 0, sequence)), 100);
-    round = selectFruit(round, 'grape', 5100);
-    expect(round.phase).toBe('failure');
-    expect(round.feedback).toBe('expired');
-    expect(round.correctCount).toBe(0);
-    expect(selectFruit(round, 'grape', 5101)).toEqual(round);
+  it('checks 10 clean rounds, 10 missed rounds, and 20 transitions', () => {
+    for (let sample = 0; sample < 10; sample += 1) {
+      const clean = chooseAll(startGame(() => 0, sequence));
+      expect([clean.score, clean.lives, clean.roundNumber]).toEqual([65, 3, 2]);
+      const missed = chooseAll(missFruit(startGame(() => 0, sequence), 3), ['cherry', 'banana', 'apple']);
+      expect([missed.score, missed.lives, missed.roundNumber]).toEqual([30, 2, 2]);
+    }
   });
 
-  it('shows five through one at the correct elapsed-second boundaries', () => {
-    const passed = passRow(revealRow(startRound(() => 0, sequence)), 100);
-    expect(secondsRemaining(passed, 100)).toBe(5);
-    expect(secondsRemaining(passed, 1099)).toBe(5);
-    expect(secondsRemaining(passed, 1100)).toBe(4);
-    expect(secondsRemaining(passed, 2100)).toBe(3);
-    expect(secondsRemaining(passed, 3100)).toBe(2);
-    expect(secondsRemaining(passed, 4100)).toBe(1);
-    expect(secondsRemaining(passed, 5099)).toBe(1);
-    expect(secondsRemaining(passed, 5100)).toBe(0);
-  });
-
-  it('retains partial score when an incomplete countdown expires', () => {
-    let round = selectFruit(startRound(() => 0, sequence), 'grape', 1);
-    round = passRow(revealRow(round), 100);
-    expect(expireRound(round, 5099)).toEqual(round);
-    const expired = expireRound(round, 5100);
-    expect(expired.phase).toBe('failure');
-    expect(expired.correctCount).toBe(1);
-    expect(expired.feedback).toBe('expired');
-    expect(expireRound(expired, 5200)).toEqual(expired);
-  });
-
-  it('fails on the first wrong selection during the countdown without adding score', () => {
-    let round = selectFruit(startRound(() => 0, sequence), 'grape', 1);
-    round = passRow(revealRow(round), 100);
-    round = selectFruit(round, 'apple', 101);
-    expect(round.phase).toBe('failure');
-    expect(round.correctCount).toBe(1);
-    expect(round.feedback).toBe('incorrect');
-    expect(selectFruit(round, 'cherry', 102)).toEqual(round);
-  });
-
-  it('counts rapid repeated fruits as separate right-to-left positions', () => {
-    let round = startRound(() => 0, ['apple', 'banana', 'apple', 'apple']);
-    round = selectFruit(round, 'apple', 1);
-    round = selectFruit(round, 'apple', 1);
-    expect(round.correctCount).toBe(2);
-    expect(selectFruit(round, 'apple', 1).phase).toBe('failure');
-  });
-
-  it('replay creates a new round with no old deadline or feedback', () => {
-    const expired = expireRound(passRow(revealRow(startRound(() => 0, sequence)), 100), 5100);
-    const replayed = replayRound(expired, () => 0.75);
-    expect(replayed.phase).toBe('approaching');
-    expect(replayed.sequence).toEqual(Array(4).fill('grape'));
-    expect(replayed.correctCount).toBe(0);
-    expect(replayed.feedback).toBeNull();
-    expect(replayed.deadlineAtMs).toBeNull();
-    expect(expireRound(replayed, 99999)).toEqual(replayed);
-    expect(replayRound(replayed, () => 0)).toEqual(replayed);
-  });
-
-  it('keeps score and outcome correct across 20 rounds with replay', () => {
-    let round = createReadyRound();
-    for (let game = 0; game < 20; game += 1) {
-      const fruit = FRUITS[game % FRUITS.length];
-      const wrong = FRUITS[(game + 1) % FRUITS.length];
-      const random = () => (game % FRUITS.length) / FRUITS.length;
-      round = game === 0 ? startRound(random) : replayRound(round, random);
-      expect(round.sequence).toEqual(Array(4).fill(fruit));
-      round = selectFruit(round, fruit, 1);
-      round = passRow(revealRow(round), 100);
-      round = selectFruit(round, fruit, 101);
-      if (game % 2 === 0) {
-        round = selectFruit(round, fruit, 102);
-        round = selectFruit(round, fruit, 103);
-        expect(round.phase).toBe('success');
-        expect(round.correctCount).toBe(4);
-      } else {
-        round = selectFruit(round, wrong, 102);
-        expect(round.phase).toBe('failure');
-        expect(round.correctCount).toBe(2);
+  it('checks 10 final-life cases and 10 clean restarts', () => {
+    for (let sample = 0; sample < 10; sample += 1) {
+      let game = startGame(() => 0, sequence);
+      game = chooseFruit(game, 'apple');
+      game = chooseFruit(game, 'apple');
+      game = chooseFruit(game, 'apple');
+      expect([game.status, game.lives]).toEqual(['game-over', 0]);
+      for (let later = 0; later < 10; later += 1) {
+        expect(chooseFruit(game, 'grape')).toBe(game);
       }
+      const fresh = startGame(() => sample % 2 ? 0.75 : 0);
+      expect([fresh.score, fresh.lives, fresh.roundNumber]).toEqual([0, 3, 1]);
+      expect(fresh.round?.positions.every((position) => position.status === 'pending')).toBe(true);
     }
   });
 });
