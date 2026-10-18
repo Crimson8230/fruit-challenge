@@ -55,7 +55,7 @@ h1 {
 
 .status-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
 }
 
@@ -82,6 +82,18 @@ h1 {
   font-size: 1.1rem;
 }
 
+.status-row .score {
+  background: #e4f3dd;
+}
+
+.status-row .score strong {
+  font-size: 1.45rem;
+}
+
+.status-row .lives.lost {
+  background: #ffe8e3;
+}
+
 .playfield {
   position: relative;
   display: grid;
@@ -100,31 +112,26 @@ h1 {
   inset: 0;
 }
 
-.countdown-overlay {
+.game-over {
   position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: 50%;
+  z-index: 2;
+  inset: 0;
   display: grid;
-  min-width: min(12rem, calc(100% - 2rem));
-  padding: 0.8rem 1.2rem;
+  place-content: center;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
   color: #21452c;
-  background: #fffef7;
-  border: 2px solid #528c55;
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgb(44 67 42 / 18%);
-  font-weight: 700;
-  line-height: 1.2;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
+  background: rgb(255 254 247 / 96%);
 }
 
-.countdown-overlay[hidden] {
+.game-over[hidden] {
   display: none;
 }
 
-.countdown-number {
-  font-size: clamp(2.5rem, 9vw, 4rem);
+.game-over h2,
+.game-over p {
+  margin: 0;
 }
 
 .fruit-row {
@@ -144,6 +151,15 @@ h1 {
   justify-items: center;
   gap: 0.25rem;
   white-space: nowrap;
+}
+
+.row-fruit.selected {
+  opacity: 0.45;
+}
+
+.row-fruit.missed {
+  opacity: 0.45;
+  filter: grayscale(1);
 }
 
 .fruit-icon {
@@ -205,7 +221,7 @@ h1 {
 }
 
 .feedback.incorrect,
-.feedback.expired {
+.feedback.missed {
   color: #9c3030;
 }
 
@@ -278,13 +294,11 @@ button:focus-visible {
     margin: 1rem auto;
   }
 
-  .fruit-controls {
+  .status-row {
     grid-template-columns: repeat(2, 1fr);
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .moving-fruit {
-    animation: none;
+  .fruit-controls {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
