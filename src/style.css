@@ -55,7 +55,7 @@ h1 {
 
 .status-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
@@ -137,17 +137,18 @@ h1 {
 .fruit-row {
   position: absolute;
   top: 50%;
-  left: 22.5%;
+  left: 50%;
   display: flex;
   align-items: center;
-  width: 55%;
-  translate: 0 -50%;
+  gap: clamp(0.15rem, 1vw, 0.75rem);
+  width: max-content;
+  translate: -50% -50%;
 }
 
 .row-fruit {
   display: grid;
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 0 0 clamp(1.5rem, 5.5vw, 3.75rem);
+  width: clamp(1.5rem, 5.5vw, 3.75rem);
   justify-items: center;
   gap: 0.25rem;
   white-space: nowrap;
@@ -163,12 +164,12 @@ h1 {
 }
 
 .fruit-icon {
-  font-size: clamp(1.5rem, 6vw, 3rem);
+  font-size: clamp(1.4rem, 5vw, 2.5rem);
   line-height: 1.1;
 }
 
 .fruit-name {
-  font-size: clamp(0.65rem, 2vw, 0.95rem);
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
   font-weight: 750;
 }
 
@@ -267,6 +268,10 @@ h1 {
   margin-top: 1rem;
 }
 
+.action-row[hidden] {
+  display: none;
+}
+
 .action-button {
   min-width: 9rem;
   padding: 0.7rem 1.2rem;
@@ -291,11 +296,29 @@ button:focus-visible {
 
 @media (max-width: 34rem) {
   .game {
-    margin: 1rem auto;
+    margin: 0.5rem auto;
+    padding: 1rem;
+  }
+
+  .instructions {
+    margin-bottom: 0.75rem;
+  }
+
+  .status-row p {
+    padding: 0.5rem 0.3rem;
+  }
+
+  .playfield {
+    min-height: 8rem;
+  }
+
+  .fruit-button {
+    min-height: 4rem;
+    padding: 0.45rem 0.25rem;
   }
 
   .status-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .fruit-controls {

@@ -1,4 +1,20 @@
-export const FRUITS = ['apple', 'banana', 'cherry', 'grape'] as const;
+export const FRUITS = ['apple', 'banana', 'grape', 'orange'] as const;
+
+export interface RoundDifficulty {
+  readonly fruitCount: number;
+  readonly speedPercent: number;
+}
+
+export function getRoundDifficulty(roundNumber: number): RoundDifficulty {
+  if (!Number.isSafeInteger(roundNumber) || roundNumber < 1) {
+    throw new RangeError('Round number must be a positive integer');
+  }
+  const tier = Math.floor((roundNumber - 1) / 2);
+  return {
+    fruitCount: Math.min(3 + tier, 8),
+    speedPercent: Math.min(100 + 15 * tier, 200),
+  };
+}
 
 export type Fruit = (typeof FRUITS)[number];
 export type PositionStatus = 'pending' | 'selected' | 'missed';
@@ -24,8 +40,11 @@ export interface Game {
   readonly feedback: GameFeedback;
 }
 
-export function generateSequence(random: () => number = Math.random): Fruit[] {
-  return Array.from({ length: 4 }, () => {
+export function generateSequence(random: () => number = Math.random, count = 3): Fruit[] {
+  if (!Number.isSafeInteger(count) || count < 3 || count > 8) {
+    throw new RangeError('Fruit count must be an integer between three and eight');
+  }
+  return Array.from({ length: count }, () => {
     const draw = random();
     if (draw < 0 || draw >= 1 || !Number.isFinite(draw)) {
       throw new RangeError('Random draw must be between 0 and 1');
@@ -34,9 +53,10 @@ export function generateSequence(random: () => number = Math.random): Fruit[] {
   });
 }
 
-function createGameRound(sequence: readonly Fruit[]): Round {
-  if (sequence.length !== 4 || sequence.some((fruit) => !FRUITS.includes(fruit))) {
-    throw new Error('A round needs exactly four valid fruits');
+function createGameRound(sequence: readonly Fruit[], roundNumber: number): Round {
+  const { fruitCount } = getRoundDifficulty(roundNumber);
+  if (sequence.length !== fruitCount || sequence.some((fruit) => !FRUITS.includes(fruit))) {
+    throw new Error(`Round ${roundNumber} needs exactly ${fruitCount} valid fruits`);
   }
   return {
     positions: sequence.map((fruit, index) => ({ index, fruit, status: 'pending' })),
@@ -63,7 +83,7 @@ export function startGame(
     score: 0,
     lives: 3,
     roundNumber: 1,
-    round: createGameRound(sequence),
+    round: createGameRound(sequence, 1),
     feedback: null,
   };
 }
@@ -73,11 +93,13 @@ function finishRound(game: Game, random: () => number): Game {
     return game;
   }
   const clean = game.round.positions.every((position) => position.status === 'selected');
+  const nextRoundNumber = game.roundNumber + 1;
+  const nextCount = getRoundDifficulty(nextRoundNumber).fruitCount;
   return {
     ...game,
     score: game.score + (clean ? 25 : 0),
-    roundNumber: game.roundNumber + 1,
-    round: createGameRound(generateSequence(random)),
+    roundNumber: nextRoundNumber,
+    round: createGameRound(generateSequence(random, nextCount), nextRoundNumber),
     feedback: clean ? 'round-complete' : 'round-missed',
   };
 }

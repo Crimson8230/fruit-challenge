@@ -50,3 +50,15 @@
 - Documentation must be updated when gameplay rules change; the old Feature 001 README
   still described one-point scoring and a five-second countdown after Feature 002 was
   implemented.
+
+## Feature 003 inherited-check follow-up (2026-10-19)
+
+- The inherited browser scenarios were revisited before the Feature 003 rule change. The
+  baseline `npm test` passed 16 tests and `npm run build` passed. A sandboxed Vite server
+  failed with `spawn EPERM`; the outside-sandbox server started. Cached Chromium produced
+  no page output with `--dump-dom`, and an isolated headless screenshot attempt hung
+  without creating a screenshot. No pre-change browser behavior was observed. A later
+  Chromium headless-shell pass on Feature 003 verified the inherited scoring, boundary,
+  Game Over, restart, keyboard, and reduced-motion behavior with Feature 003's deliberate
+  fruit-set and input-order changes; results are in the Feature 003 development log.
+  Feature 002 tasks T009 and T015 retain their historical pre-change pending status.

@@ -3,6 +3,7 @@ import {
   FRUITS,
   chooseFruit,
   createReadyGame,
+  getRoundDifficulty,
   missFruit,
   startGame,
   type Fruit,
@@ -15,8 +16,8 @@ if (!app) throw new Error('Game mount element is missing');
 const fruitDetails: Record<Fruit, { label: string; icon: string }> = {
   apple: { label: 'Apple', icon: '🍎' },
   banana: { label: 'Banana', icon: '🍌' },
-  cherry: { label: 'Cherry', icon: '🍒' },
   grape: { label: 'Grape', icon: '🍇' },
+  orange: { label: 'Orange', icon: '🍊' },
 };
 
 let game: Game = createReadyGame();
@@ -31,13 +32,14 @@ app.innerHTML = `
     <header class="game-header">
       <p class="eyebrow">Fruit memory game</p>
       <h1 id="game-title">Fruit Challenge</h1>
-      <p class="instructions">Read the four fruits from right to left. Choose them as soon as the round starts. Wrong choices and missed fruits cost a life.</p>
+      <p class="instructions">Read the fruits from right to left. Choose them as soon as the round starts. Wrong choices and missed fruits cost a life.</p>
     </header>
     <div class="status-row" aria-live="polite">
       <p class="score"><span class="status-label">Score</span><strong id="score">0</strong></p>
       <p class="lives" id="lives-panel"><span class="status-label">Lives</span><strong id="lives">3</strong></p>
       <p><span class="status-label">Round</span><strong id="round-number">1</strong></p>
-      <p><span class="status-label">Selected</span><strong id="progress">0/4</strong></p>
+      <p><span class="status-label">Selected</span><strong id="progress">0/3</strong></p>
+      <p><span class="status-label">Speed</span><strong id="speed">100%</strong></p>
     </div>
     <div class="playfield" aria-label="Fruit playfield">
       <div id="fruit-stage"></div>
@@ -67,6 +69,7 @@ const livesElement = app.querySelector<HTMLElement>('#lives')!;
 const livesPanel = app.querySelector<HTMLElement>('#lives-panel')!;
 const roundElement = app.querySelector<HTMLElement>('#round-number')!;
 const progressElement = app.querySelector<HTMLElement>('#progress')!;
+const speedElement = app.querySelector<HTMLElement>('#speed')!;
 const stageElement = app.querySelector<HTMLElement>('#fruit-stage')!;
 const gameOverElement = app.querySelector<HTMLElement>('#game-over')!;
 const finalScoreElement = app.querySelector<HTMLElement>('#final-score')!;
@@ -74,14 +77,17 @@ const finalRoundElement = app.querySelector<HTMLElement>('#final-round')!;
 const captionElement = app.querySelector<HTMLElement>('#caption')!;
 const feedbackElement = app.querySelector<HTMLElement>('#feedback')!;
 const startButton = app.querySelector<HTMLButtonElement>('#start-button')!;
+const actionRowElement = app.querySelector<HTMLElement>('.action-row')!;
 const restartButton = app.querySelector<HTMLButtonElement>('[data-action="restart"]')!;
 const fruitButtons = Array.from(app.querySelectorAll<HTMLButtonElement>('.fruit-button'));
 
 function render(): void {
+  const difficulty = getRoundDifficulty(game.roundNumber);
   scoreElement.textContent = String(game.score);
   livesElement.textContent = `${game.lives} ${'♥'.repeat(game.lives)}`.trim();
   roundElement.textContent = String(game.roundNumber);
-  progressElement.textContent = `${game.round?.positions.filter((position) => position.status === 'selected').length ?? 0}/4`;
+  progressElement.textContent = `${game.round?.positions.filter((position) => position.status === 'selected').length ?? 0}/${difficulty.fruitCount}`;
+  speedElement.textContent = `${difficulty.speedPercent}%`;
   livesPanel.classList.toggle('lost', game.feedback === 'incorrect' || game.feedback === 'missed');
 
   const messages = {
@@ -100,6 +106,7 @@ function render(): void {
       ? 'Choose from right to left before the fruits leave.'
       : '';
   startButton.hidden = game.status !== 'ready';
+  actionRowElement.hidden = game.status !== 'ready';
   gameOverElement.hidden = game.status !== 'game-over';
   finalScoreElement.textContent = String(game.score);
   finalRoundElement.textContent = String(game.roundNumber);
@@ -164,11 +171,11 @@ function resolvePending(token: number, force = false): void {
 async function moveRow(row: HTMLElement, token: number): Promise<void> {
   const rowWidth = row.getBoundingClientRect().width;
   const fieldWidth = stageElement.clientWidth;
-  const visibleTravel = fieldWidth - rowWidth;
-  const speed = visibleTravel / 3500;
+  const speed = (0.45 * fieldWidth / 3500) * (getRoundDifficulty(game.roundNumber).speedPercent / 100);
   const entranceTime = rowWidth / speed;
   const duration = (fieldWidth + rowWidth) / speed;
   row.style.left = '0';
+  row.style.translate = '0 -50%';
   row.style.transform = `translateX(-${rowWidth}px)`;
 
   const animation = row.animate(
