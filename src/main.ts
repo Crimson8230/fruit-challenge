@@ -11,6 +11,7 @@ import {
 } from './game';
 import { classifyTransition, type PresentationEvent, type TransitionSource } from './presentation';
 import { SoundController } from './audio';
+import { HighscoreTracker, isNewRecord } from './highscore';
 
 const app = document.querySelector<HTMLElement>('#app');
 if (!app) throw new Error('Game mount element is missing');
@@ -29,6 +30,8 @@ let staticTimer: number | null = null;
 let roundToken = 0;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const sound = new SoundController();
+const highscores = new HighscoreTracker();
+let startingBest = highscores.best;
 
 app.innerHTML = `
   <section class="game" aria-labelledby="game-title">
@@ -36,7 +39,7 @@ app.innerHTML = `
       <p class="eyebrow">Fruit memory game</p>
       <button class="sound-button" id="sound-button" data-action="sound" type="button" aria-label="Sound" aria-pressed="false">Sound on</button>
       <h1 id="game-title">Fruit Rush</h1>
-      <p class="instructions">Read the fruits from right to left. Choose them as soon as the round starts. Wrong choices and missed fruits cost a life.</p>
+      <p class="instructions">Choose the moving fruits from right to left, in order, before they reach the right boundary. Wrong choices and missed fruits cost a life.</p>
     </header>
     <div class="status-row" aria-live="polite">
       <p class="score"><span class="status-label">Score</span><strong id="score">0</strong></p>
@@ -49,12 +52,15 @@ app.innerHTML = `
       <div id="fruit-stage"></div>
       <div class="ready-panel" id="ready-panel">
         <strong>Ready to rush?</strong>
-        <span>Start a round, then pick the rightmost fruit first.</span>
+        <span>Pick the rightmost fruit first before the row reaches the right edge.</span>
+        <span class="ready-highscore">Highscore <strong id="ready-highscore">0</strong></span>
       </div>
       <div class="game-over" id="game-over" role="alertdialog" aria-labelledby="game-over-title" hidden>
         <h2 id="game-over-title">Game Over</h2>
         <p class="final-stat">Final score <strong id="final-score">0</strong></p>
+        <p class="final-stat">Highscore <strong id="final-highscore">0</strong></p>
         <p class="final-stat">Rounds reached <strong id="final-round">1</strong></p>
+        <p class="new-record" id="new-record" hidden>New highscore!</p>
         <button class="action-button" data-action="restart">Play Again</button>
       </div>
       <p class="playfield-caption" id="caption"></p>
@@ -66,13 +72,14 @@ app.innerHTML = `
     <div class="fruit-controls" role="group" aria-label="Fruit choices">
       ${FRUITS.map((fruit) => {
         const { label, image } = fruitDetails[fruit];
-        return `<button class="fruit-button" data-fruit="${fruit}" disabled><img src="${image}" alt="" aria-hidden="true"><span>${label}</span></button>`;
+        return `<button class="fruit-button" data-fruit="${fruit}" aria-label="${label}" disabled><img src="${image}" alt="" aria-hidden="true"></button>`;
       }).join('')}
     </div>
   </section>
 `;
 
 const scoreElement = app.querySelector<HTMLElement>('#score')!;
+const gameElement = app.querySelector<HTMLElement>('.game')!;
 const scorePanel = app.querySelector<HTMLElement>('.score')!;
 const livesElement = app.querySelector<HTMLElement>('#lives')!;
 const livesPanel = app.querySelector<HTMLElement>('#lives-panel')!;
@@ -84,7 +91,10 @@ const playfieldElement = app.querySelector<HTMLElement>('.playfield')!;
 const readyPanel = app.querySelector<HTMLElement>('#ready-panel')!;
 const gameOverElement = app.querySelector<HTMLElement>('#game-over')!;
 const finalScoreElement = app.querySelector<HTMLElement>('#final-score')!;
+const readyHighscoreElement = app.querySelector<HTMLElement>('#ready-highscore')!;
+const finalHighscoreElement = app.querySelector<HTMLElement>('#final-highscore')!;
 const finalRoundElement = app.querySelector<HTMLElement>('#final-round')!;
+const newRecordElement = app.querySelector<HTMLElement>('#new-record')!;
 const captionElement = app.querySelector<HTMLElement>('#caption')!;
 const feedbackElement = app.querySelector<HTMLElement>('#feedback')!;
 const startButton = app.querySelector<HTMLButtonElement>('#start-button')!;
@@ -192,17 +202,19 @@ function render(): void {
   feedbackElement.textContent = game.feedback ? messages[game.feedback] : '';
   feedbackElement.className = `feedback ${game.feedback ?? ''}`;
 
-  captionElement.textContent = game.status === 'ready'
-    ? 'Start, then choose from right to left immediately.'
-    : game.status === 'playing'
+  captionElement.textContent = game.status === 'playing'
       ? 'Choose from right to left before the fruits leave.'
       : '';
   startButton.hidden = game.status !== 'ready';
   actionRowElement.hidden = game.status !== 'ready';
   readyPanel.hidden = game.status !== 'ready';
+  gameElement.classList.toggle('game-over-state', game.status === 'game-over');
   gameOverElement.hidden = game.status !== 'game-over';
+  readyHighscoreElement.textContent = String(highscores.best);
   finalScoreElement.textContent = String(game.score);
+  finalHighscoreElement.textContent = String(highscores.best);
   finalRoundElement.textContent = String(game.roundNumber);
+  newRecordElement.hidden = game.status !== 'game-over' || !isNewRecord(game.score, startingBest);
   for (const button of fruitButtons) button.disabled = game.status !== 'playing';
 
   const slots = stageElement.querySelectorAll<HTMLElement>('.row-fruit');
@@ -230,6 +242,7 @@ function acceptGame(next: Game): boolean {
   if (next === game) return true;
   const previousRoundNumber = game.roundNumber;
   game = next;
+  highscores.record(game.score);
   if (game.status === 'game-over') {
     stopMotion();
     clearVisualEffects();
@@ -326,7 +339,7 @@ function beginCurrentRound(): void {
   if (game.status !== 'playing' || !game.round) return;
   stageElement.innerHTML = `<div class="fruit-row" aria-label="Fruit sequence">${game.round.positions.map(({ fruit }) => {
     const { label, image } = fruitDetails[fruit];
-    return `<div class="row-fruit" aria-label="${label}"><img class="fruit-icon" src="${image}" alt="" aria-hidden="true"><span class="fruit-name">${label}</span></div>`;
+    return `<div class="row-fruit" role="img" aria-label="${label}"><img class="fruit-icon" src="${image}" alt="" aria-hidden="true"></div>`;
   }).join('')}</div>`;
   render();
   const row = stageElement.querySelector<HTMLElement>('.fruit-row')!;
@@ -354,6 +367,7 @@ app.addEventListener('click', (event) => {
   if (button.dataset.action === 'start' && game.status === 'ready') {
     clearVisualEffects();
     sound.unlockFromGesture();
+    startingBest = highscores.best;
     game = startGame();
     beginCurrentRound();
     return;
@@ -362,6 +376,7 @@ app.addEventListener('click', (event) => {
     clearVisualEffects();
     sound.stopActive();
     sound.unlockFromGesture();
+    startingBest = highscores.best;
     game = startGame();
     beginCurrentRound();
     return;

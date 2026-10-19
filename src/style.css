@@ -152,6 +152,14 @@ h1 {
 .ready-panel[hidden] { display: none; }
 .ready-panel strong { color: #603473; font-size: clamp(1.1rem, 4vw, 1.45rem); }
 .ready-panel span { font-size: .87rem; line-height: 1.3; }
+.ready-highscore {
+  padding: .2rem .65rem;
+  border-radius: 99rem;
+  background: #fff0b5;
+  color: #49375c;
+  font-weight: 800;
+}
+.ready-panel .ready-highscore strong { font-size: inherit; }
 
 .fruit-row {
   position: absolute;
@@ -184,7 +192,6 @@ h1 {
 .row-fruit.selected .fruit-icon { opacity: 0; }
 .row-fruit.vanishing .fruit-icon { animation: fruit-vanish .28s ease-out both; }
 .row-fruit.missed .fruit-icon { opacity: .18; filter: grayscale(1); }
-.fruit-name { color: #1c3151; font-size: clamp(.6rem, 1.2vw, .77rem); font-weight: 850; text-shadow: 0 1px #fff; }
 
 .round-result { position: absolute; z-index: 1; inset: 0; pointer-events: none; }
 
@@ -255,6 +262,16 @@ h1 {
 }
 .game-over .final-stat strong { color: #603473; }
 .game-over .action-button { margin-top: .2rem; }
+.new-record {
+  margin: 0;
+  padding: .15rem .65rem;
+  border: 2px solid #ac6c19;
+  border-radius: 99rem;
+  background: #fff0ab;
+  color: #6d3d12;
+  font-weight: 900;
+}
+.new-record[hidden] { display: none; }
 
 .feedback {
   min-height: 1.7rem;
@@ -369,8 +386,9 @@ button:focus-visible { outline: 3px solid #273e95; outline-offset: 3px; }
   .status-row .score { grid-column: span 2; }
   .status-row p { padding: .3rem .2rem; }
   .playfield { min-height: 12rem; margin-top: .7rem; }
+  .game.game-over-state .playfield { min-height: 14rem; }
+  .game-over { gap: .25rem; padding: .4rem; }
   .fruit-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
   .fruit-button { min-height: 4.25rem; }
   .fruit-button img { width: 1.9rem; height: 1.9rem; }
-  .fruit-name { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 }
