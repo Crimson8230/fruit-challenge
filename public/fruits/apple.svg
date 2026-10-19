@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Apple">
+  <path d="M31 16c-1-6 1-10 5-13" fill="none" stroke="#5b3328" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M32 15c4-8 11-9 16-7-2 7-7 11-16 10" fill="#54b66a" stroke="#286e45" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M32 20c-6-5-15-6-21 0C1 30 7 53 20 57c5 2 8-1 12-1s7 3 12 1c13-4 19-27 9-37-6-6-15-5-21 0Z" fill="#f34f5e" stroke="#8e2f45" stroke-width="2.5"/>
+  <path d="M14 25c4-5 9-5 13-3" fill="none" stroke="#ffb0a8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M45 48c3-3 5-7 5-11" fill="none" stroke="#d93651" stroke-width="3" stroke-linecap="round"/>
+</svg>
