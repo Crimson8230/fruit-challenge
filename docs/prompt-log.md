@@ -66,6 +66,14 @@ The opening lines of the feature request are **conversation text** (opening exce
 
 The longer request covered the dedicated branch, graphical fruit buttons without visible names, browser-local highscore, finalized Start and Game Over screens, complete gameplay regression, documentation, and a final commit. The [Feature 005 specification](../specs/005-highscores-finalization/spec.md) records these requirements, but its `Input` field is a summary rather than the full original prompt.
 
+## Feature 006 — named highscore list and retro music
+
+The following request is **conversation text** (original spelling):
+
+> $speckit-specify am ende kann man beim highscore seinen namen eingeben und es wird eine liste aller highscores angeigt 10 ergebnisse vom besten absteigend. weiters gibts es eine midisound hintergrundmusik ähnlich alten snes spielen
+
+The [Feature 006 specification](../specs/006-highscore-list-music/spec.md) records the resulting requirements and assumptions.
+
 ## Spec-Kit workflow commands
 
 The conversation also records these literal command prompts, used across the feature workflow: `$speckit-specify`, `$speckit-plan`, `$speckit-tasks`, `$speckit-implement`, and `$speckit-converge`. The last command was used for follow-up consistency checks. Their generated artifacts are under [`specs/`](../specs/).
