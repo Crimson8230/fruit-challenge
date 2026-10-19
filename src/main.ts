@@ -11,7 +11,7 @@ import {
 } from './game';
 import { classifyTransition, type PresentationEvent, type TransitionSource } from './presentation';
 import { SoundController } from './audio';
-import { HighscoreTracker, isNewRecord } from './highscore';
+import { HighscoreBoard, HighscoreTracker, isNewRecord } from './highscore';
 
 const app = document.querySelector<HTMLElement>('#app');
 if (!app) throw new Error('Game mount element is missing');
@@ -31,13 +31,23 @@ let roundToken = 0;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const sound = new SoundController();
 const highscores = new HighscoreTracker();
+const board = new HighscoreBoard(undefined, highscores.best);
+highscores.record(board.entries[0]?.score ?? 0);
 let startingBest = highscores.best;
+let runSubmitted = false;
+let submissionMessage = '';
 
 app.innerHTML = `
   <section class="game" aria-labelledby="game-title">
     <header class="game-header">
       <p class="eyebrow">Fruit memory game</p>
-      <button class="sound-button" id="sound-button" data-action="sound" type="button" aria-label="Sound" aria-pressed="false">Sound on</button>
+      <button class="sound-button" id="sound-button" data-action="sound" type="button" aria-label="Mute sound" aria-pressed="false">
+        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+          <path class="speaker-shape" d="M8 18h8l10-8v28l-10-8H8z" />
+          <path class="sound-waves" d="M31 17c4 3 4 11 0 14m5-19c7 6 7 18 0 24" />
+          <path class="sound-slash" d="M8 8l32 32" />
+        </svg>
+      </button>
       <h1 id="game-title">Fruit Rush</h1>
       <p class="instructions">Choose the moving fruits from right to left, in order, before they reach the right boundary. Wrong choices and missed fruits cost a life.</p>
     </header>
@@ -61,6 +71,14 @@ app.innerHTML = `
         <p class="final-stat">Highscore <strong id="final-highscore">0</strong></p>
         <p class="final-stat">Rounds reached <strong id="final-round">1</strong></p>
         <p class="new-record" id="new-record" hidden>New highscore!</p>
+        <form class="name-form" id="name-form">
+          <label for="player-name">Your name</label>
+          <div class="name-form-row">
+            <input id="player-name" name="player-name" type="text" autocomplete="off" aria-describedby="name-message">
+            <button class="action-button" id="save-score" type="submit">Save score</button>
+          </div>
+          <p id="name-message" class="name-message" role="status" aria-live="polite"></p>
+        </form>
         <button class="action-button" data-action="restart">Play Again</button>
       </div>
       <p class="playfield-caption" id="caption"></p>
@@ -69,6 +87,14 @@ app.innerHTML = `
     <div class="action-row">
       <button class="action-button" id="start-button" data-action="start">Start Game</button>
     </div>
+    <section class="ranking-panel" id="ready-ranking" aria-labelledby="ready-ranking-title">
+      <h2 id="ready-ranking-title">Top 10 highscores</h2>
+      <ol class="ranking-list" id="ready-ranking-list"></ol>
+    </section>
+    <section class="ranking-panel" id="over-ranking" aria-labelledby="over-ranking-title" hidden>
+      <h2 id="over-ranking-title">Top 10 highscores</h2>
+      <ol class="ranking-list" id="over-ranking-list"></ol>
+    </section>
     <div class="fruit-controls" role="group" aria-label="Fruit choices">
       ${FRUITS.map((fruit) => {
         const { label, image } = fruitDetails[fruit];
@@ -101,14 +127,53 @@ const startButton = app.querySelector<HTMLButtonElement>('#start-button')!;
 const soundButton = app.querySelector<HTMLButtonElement>('#sound-button')!;
 const actionRowElement = app.querySelector<HTMLElement>('.action-row')!;
 const restartButton = app.querySelector<HTMLButtonElement>('[data-action="restart"]')!;
+const nameForm = app.querySelector<HTMLFormElement>('#name-form')!;
+const nameInput = app.querySelector<HTMLInputElement>('#player-name')!;
+const nameMessage = app.querySelector<HTMLElement>('#name-message')!;
+const saveScoreButton = app.querySelector<HTMLButtonElement>('#save-score')!;
+const readyRanking = app.querySelector<HTMLElement>('#ready-ranking')!;
+const overRanking = app.querySelector<HTMLElement>('#over-ranking')!;
+const rankingLists = [
+  app.querySelector<HTMLOListElement>('#ready-ranking-list')!,
+  app.querySelector<HTMLOListElement>('#over-ranking-list')!,
+];
 const fruitButtons = Array.from(app.querySelectorAll<HTMLButtonElement>('.fruit-button'));
 const effectTimers = new Map<HTMLElement, number>();
 let temporaryOverlay: HTMLElement | null = null;
 let overlayTimer: number | null = null;
 
 function renderSoundState(): void {
-  soundButton.textContent = sound.isMuted ? 'Sound off' : 'Sound on';
+  soundButton.setAttribute('aria-label', sound.isMuted ? 'Unmute sound' : 'Mute sound');
   soundButton.setAttribute('aria-pressed', String(sound.isMuted));
+}
+
+function renderRankings(): void {
+  const entries = board.entries;
+  for (const list of rankingLists) {
+    list.replaceChildren();
+    if (entries.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'ranking-empty';
+      empty.textContent = 'No scores saved yet.';
+      list.append(empty);
+      continue;
+    }
+    entries.forEach((entry, index) => {
+      const row = document.createElement('li');
+      row.className = 'ranking-row';
+      const rank = document.createElement('span');
+      rank.className = 'ranking-rank';
+      rank.textContent = `${index + 1}.`;
+      const name = document.createElement('span');
+      name.className = 'ranking-name';
+      name.textContent = entry.name ?? 'Legacy record';
+      const score = document.createElement('strong');
+      score.className = 'ranking-score';
+      score.textContent = String(entry.score);
+      row.append(rank, name, score);
+      list.append(row);
+    });
+  }
 }
 
 function flash(element: HTMLElement, effect: string, duration: number): void {
@@ -210,11 +275,16 @@ function render(): void {
   readyPanel.hidden = game.status !== 'ready';
   gameElement.classList.toggle('game-over-state', game.status === 'game-over');
   gameOverElement.hidden = game.status !== 'game-over';
+  readyRanking.hidden = game.status !== 'ready';
+  overRanking.hidden = game.status !== 'game-over';
   readyHighscoreElement.textContent = String(highscores.best);
   finalScoreElement.textContent = String(game.score);
   finalHighscoreElement.textContent = String(highscores.best);
   finalRoundElement.textContent = String(game.roundNumber);
   newRecordElement.hidden = game.status !== 'game-over' || !isNewRecord(game.score, startingBest);
+  nameInput.disabled = game.status !== 'game-over' || runSubmitted;
+  saveScoreButton.disabled = game.status !== 'game-over' || runSubmitted;
+  nameMessage.textContent = submissionMessage;
   for (const button of fruitButtons) button.disabled = game.status !== 'playing';
 
   const slots = stageElement.querySelectorAll<HTMLElement>('.row-fruit');
@@ -246,10 +316,11 @@ function acceptGame(next: Game): boolean {
   if (game.status === 'game-over') {
     stopMotion();
     clearVisualEffects();
+    sound.stopMusic();
     sound.stopActive();
     stageElement.innerHTML = '';
     render();
-    restartButton.focus();
+    nameInput.focus();
     return false;
   }
   if (game.roundNumber !== previousRoundNumber) {
@@ -368,16 +439,25 @@ app.addEventListener('click', (event) => {
     clearVisualEffects();
     sound.unlockFromGesture();
     startingBest = highscores.best;
+    runSubmitted = false;
+    submissionMessage = '';
+    nameInput.value = '';
     game = startGame();
+    sound.startMusic();
     beginCurrentRound();
     return;
   }
   if (button.dataset.action === 'restart' && game.status === 'game-over') {
     clearVisualEffects();
+    sound.stopMusic();
     sound.stopActive();
     sound.unlockFromGesture();
     startingBest = highscores.best;
+    runSubmitted = false;
+    submissionMessage = '';
+    nameInput.value = '';
     game = startGame();
+    sound.startMusic();
     beginCurrentRound();
     return;
   }
@@ -399,6 +479,26 @@ app.addEventListener('click', (event) => {
   }
 });
 
+nameForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (game.status !== 'game-over' || runSubmitted) return;
+  const result = board.submit(nameInput.value, game.score);
+  if (result.status === 'invalid-name' || result.status === 'invalid-score') {
+    submissionMessage = result.message;
+    render();
+    nameInput.focus();
+    return;
+  }
+  runSubmitted = true;
+  submissionMessage = result.status === 'ranked'
+    ? `${result.name} — ${result.score} points saved.`
+    : 'Score saved, but it did not enter the top ten.';
+  renderRankings();
+  render();
+  restartButton.focus();
+});
+
 render();
+renderRankings();
 renderSoundState();
 window.addEventListener('pagehide', () => sound.dispose());

@@ -30,13 +30,15 @@ Select **Start Game**, then use the four illustrated fruit buttons with mouse, t
 
 Rounds 1–2 have three fruits at 100% speed. Every two rounds add one fruit and 15% speed until the row reaches eight fruits; speed caps at 200% from round 15. With reduced motion, the row remains still for three seconds before pending positions count as missed.
 
-Your **highscore** rises whenever a run beats your prior best. The Start and Game Over screens display it, and Game Over marks a new record when that run beats its starting best. The score is saved in this browser profile; if browser storage is unavailable, the current page keeps its best score until it closes. **Sound on/off** controls short optional cues. All outcomes also have visual feedback, so sound is not required.
+Your **personal best** rises whenever a run beats your prior best. The Start and Game Over screens display it, and Game Over marks a new record when that run beats its starting best. After Game Over, enter a name of up to 16 visible characters and choose **Save score** to submit the run to the local **Top 10 highscores** list. The list shows the ten best submitted scores in descending order, with older results first on a tie. You may choose **Play Again** without submitting. An older personal best without a name appears as **Legacy record**. Scores stay in this browser profile; if storage is unavailable, the current page keeps new results until it closes.
+
+The speaker icon in the upper-right corner mutes or unmutes both the short gameplay cues and a quiet retro-style background loop. Music begins only after starting a game when the browser permits audio and stops at Game Over. All outcomes have visual feedback, so sound is optional.
 
 ## Project structure
 
 - `src/game.ts`: fruit sequences, validation, scoring, lives, rounds, and difficulty.
 - `src/main.ts` and `src/style.css`: screen, input, movement, layout, and effects.
-- `src/highscore.ts`: browser-local personal best; `src/presentation.ts` and `src/audio.ts`: visual event classification and optional sound.
+- `src/highscore.ts`: browser-local personal best and named Top 10; `src/presentation.ts` and `src/audio.ts`: visual event classification, sound cues, and optional music.
 - `public/fruits/`: the four local SVG illustrations.
 - `specs/`: feature specifications, plans, tasks, and development logs.
 - `docs/vibe-coding-experience.md`: evidence-based university project account; `docs/prompt-log.md`: preserved prompt wording and source notes.

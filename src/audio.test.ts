@@ -81,4 +81,54 @@ describe('sound controller', () => {
     expect(fake.voices[1].stopped).toBe(true);
     expect(fake.close).toHaveBeenCalledTimes(1);
   });
+
+  it('runs at most one music loop and silences it immediately on mute or Game Over', () => {
+    vi.useFakeTimers();
+    try {
+      const fake = fakeAudio();
+      const sound = new SoundController(() => fake.context);
+      sound.unlockFromGesture();
+      sound.startMusic();
+      sound.startMusic();
+      expect(sound.isMusicPlaying).toBe(true);
+      expect(vi.getTimerCount()).toBe(1);
+      expect(fake.voices.length).toBeGreaterThan(0);
+      sound.setMuted(true);
+      expect(sound.isMusicPlaying).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(fake.voices.every((voice) => voice.stopped)).toBe(true);
+      expect(sound.play('correct')).toBe(false);
+      sound.setMuted(false);
+      expect(sound.isMusicPlaying).toBe(true);
+      expect(vi.getTimerCount()).toBe(1);
+      sound.stopMusic();
+      expect(sound.isMusicPlaying).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(sound.play('game-over')).toBe(true);
+      sound.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for a permitted audio context and stays silent when audio is unavailable', async () => {
+    vi.useFakeTimers();
+    try {
+      const suspended = fakeAudio('suspended');
+      const sound = new SoundController(() => suspended.context);
+      sound.unlockFromGesture();
+      sound.startMusic();
+      await Promise.resolve();
+      expect(sound.isMusicPlaying).toBe(true);
+      sound.dispose();
+      expect(vi.getTimerCount()).toBe(0);
+      const missing = new SoundController(() => null);
+      missing.unlockFromGesture();
+      missing.startMusic();
+      expect(missing.isMusicPlaying).toBe(false);
+      missing.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
