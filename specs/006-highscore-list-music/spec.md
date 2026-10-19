@@ -5,6 +5,8 @@
 **Status**: Draft
 **Input**: User request (original German): "am ende kann man beim highscore seinen namen eingeben und es wird eine liste aller highscores angeigt 10 ergebnisse vom besten absteigend. weiters gibts es eine midisound hintergrundmusik ähnlich alten snes spielen"
 
+**Amendment**: User request (original German): "ich möchte zusätzlich noch das anstatt sound on/off ein symbol oben rechts ist mit dem soundsymbol an/aus"
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Enter a name after Game Over (Priority: P1)
@@ -54,6 +56,8 @@ During a run, a short instrumental loop with a playful MIDI-style, 16-bit consol
 2. **Given** music is playing, **When** the player mutes sound, **Then** music and existing gameplay sound effects become inaudible immediately; unmuting during play restores music.
 3. **Given** a run reaches Game Over, **When** the end screen appears, **Then** the gameplay music stops, while the end sound remains governed by the sound setting.
 4. **Given** audio is unavailable or playback is denied, **When** the player starts or restarts, **Then** the game continues normally and remains usable without sound.
+5. **Given** the game is visible, **When** the player looks at the upper-right corner, **Then** a recognizable sound icon shows whether sound is on or off without visible "Sound on/off" text.
+6. **Given** the sound icon has keyboard focus, **When** the player activates it, **Then** its state and accessible name update and both music and effects follow the new setting.
 
 ### Edge Cases
 
@@ -64,6 +68,7 @@ During a run, a short instrumental loop with a playful MIDI-style, 16-bit consol
 - The prior single-number highscore has no associated player name; it is retained as a clearly identified legacy result until ten higher results replace it.
 - A result below the tenth-place score is not retained in the top-ten list, but the player may still submit their name and receives clear feedback that the ranking did not change.
 - Rapid restart, repeated submit, mute toggles, and page navigation must not create duplicate ranking entries or overlapping music loops.
+- The sound icon remains clearly visible and operable on a narrow screen and does not cover gameplay or ranking content.
 
 ## Requirements *(mandatory)*
 
@@ -78,7 +83,7 @@ During a run, a short instrumental loop with a playful MIDI-style, 16-bit consol
 - **FR-007**: The existing personal-best value MUST remain available. Existing single-value highscore data MUST migrate without losing the previous best, using a clearly marked unnamed legacy entry if needed.
 - **FR-008**: Unavailable or malformed saved ranking data MUST NOT prevent gameplay, Game Over, restart, or display of valid results.
 - **FR-009**: The game MUST provide an original, unobtrusive instrumental background loop with a retro MIDI-style console sound during active play.
-- **FR-010**: The existing sound control MUST mute and unmute both music and gameplay sound effects. Playback MUST respect browser permission and MUST not delay gameplay.
+- **FR-010**: A recognizable sound on/off icon in the upper-right corner MUST replace the visible "Sound on/off" text. The control MUST show its current state, provide a changing accessible name and visible keyboard focus, and mute or unmute both music and gameplay sound effects. Playback MUST respect browser permission and MUST not delay gameplay.
 - **FR-011**: Background music MUST stop at Game Over and MUST restart as one loop for a new run when sound is enabled; repeated restarts MUST NOT overlap loops.
 - **FR-012**: Existing fruit order, movement, scoring, lives, difficulty, graphics, sound effects, Game Over, and restart behavior MUST remain unchanged except where the new ranking and music need screen space or sound control integration.
 - **FR-013**: The ranking, name form, and sound control MUST remain readable and usable on desktop and narrow mobile screens, with visible focus and meaningful text for screen readers.
@@ -100,6 +105,7 @@ During a run, a short instrumental loop with a playful MIDI-style, 16-bit consol
 - **SC-004**: With sound enabled and playback permitted, music starts within 2 seconds of selecting Start Game, and muting makes music and sound effects inaudible within 1 second.
 - **SC-005**: A player can complete a run, submit a name, inspect the ranking, and restart on both a desktop viewport and a 360-pixel-wide mobile viewport without horizontal page scrolling.
 - **SC-006**: Existing gameplay regression checks pass, including rightmost-first input, scoring, life loss, difficulty, and replay.
+- **SC-007**: On desktop and a 360-pixel-wide mobile viewport, the upper-right sound icon is visible without scrolling, accurately indicates mute state, and can be operated by mouse, touch, and keyboard.
 
 ## Assumptions
 

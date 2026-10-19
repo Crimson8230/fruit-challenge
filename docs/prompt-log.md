@@ -74,6 +74,10 @@ The following request is **conversation text** (original spelling):
 
 The [Feature 006 specification](../specs/006-highscore-list-music/spec.md) records the resulting requirements and assumptions.
 
+A later **conversation text** amendment specified the sound control (original spelling):
+
+> $speckit-plan ich möchte zusätzlich noch das anstatt sound on/off ein symbol oben rechts ist mit dem soundsymbol an/aus
+
 ## Spec-Kit workflow commands
 
 The conversation also records these literal command prompts, used across the feature workflow: `$speckit-specify`, `$speckit-plan`, `$speckit-tasks`, `$speckit-implement`, and `$speckit-converge`. The last command was used for follow-up consistency checks. Their generated artifacts are under [`specs/`](../specs/).
