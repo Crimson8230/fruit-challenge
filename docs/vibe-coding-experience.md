@@ -28,13 +28,15 @@ The feature artifacts followed a requirements → plan → tasks → implementat
 
 ## Important recorded prompts
 
+The separate [prompt log](prompt-log.md) lists individual requests and distinguishes quoted Spec-Kit input, conversation excerpts, and unavailable original text.
+
 - Feature 001's log records the initial request for a playable moving-fruit game and three correction requests: a single moving row, right-to-left entry at constant speed, and prompt input with a countdown in that historical version. [Feature 001 prompts](../specs/001-core-fruit-input/development-log.md)
 - Feature 002's log records the request for scoring, lives, boundary misses, automatic rounds, Game Over, and replay. [Feature 002 prompts](../specs/002-scoring-lives-game-over/development-log.md)
 - Feature 003's log records the difficulty-tier request and the later player correction of input direction. [Feature 003 prompts](../specs/003-progressive-difficulty/development-log.md)
 - Feature 004's log records the visual/audio/responsive polish request. [Feature 004 prompts](../specs/004-visual-polish-feedback/development-log.md)
 - Feature 005's specification records the final highscore, label-free graphics, documentation, and regression scope. [Feature 005 specification](../specs/005-highscores-finalization/spec.md)
 
-These are summaries unless quotation marks and exact prompt text appear in a cited log.
+These bullets summarize the prompts; use the prompt log for preserved wording and its source limitations.
 
 **TODO (developer input):** Add any other important exact prompts only if you have their original text.
 
