@@ -41,3 +41,9 @@ Browser audio could not be judged by listening in headless mode. One synthetic S
 - Source review confirmed `src/game.ts`, the four fruit SVGs, and the established movement-speed formula were not changed. No dependency was added.
 - The Feature 006 specification's functional requirements were checked against the implemented UI, storage, and audio lifecycle. The built-in requirements-quality checklist remained read-only and fully checked (16/16). No extension hooks were configured.
 - The local ranking is intentionally confined to one browser profile. An audible human review of the original loop remains pending; the headless tests establish scheduling, mute, cleanup, and fallback behavior but cannot establish subjective sound quality.
+
+## Convergence corrections — 2026-10-19
+
+- Name validation now rejects inputs containing no visible letters, numbers, punctuation, or symbols. Focused tests cover zero-width, control-only, and combining-mark-only names; the existing emoji grapheme tests still pass.
+- When a qualifying result would exhaust the safe integer order counter, retained entries are renumbered in their original submission order before the new result is saved. A regression test verifies stable equal-score ordering, a safe persisted `nextOrder`, reload, and a later submission.
+- Both new regression tests failed before the fixes and passed afterward. The final focused highscore run passed 20 tests; the full suite passed 67 tests, and `npm run build` passed.

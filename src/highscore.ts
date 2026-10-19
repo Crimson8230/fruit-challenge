@@ -19,7 +19,7 @@ export function rankEntries(entries: readonly HighscoreEntry[]): HighscoreEntry[
 
 export function validatePlayerName(input: string): { name: string } | { error: string } {
   const name = input.trim();
-  if (!name) return { error: 'Enter a name.' };
+  if (!/[\p{L}\p{N}\p{P}\p{S}]/u.test(name)) return { error: 'Enter a name.' };
   const length = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
     ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name)).length
     : Array.from(name).length;
@@ -104,8 +104,16 @@ export class HighscoreBoard {
     if (!ranked.includes(entry)) {
       return { status: 'not-ranked', name: validation.name, score };
     }
-    this.list = ranked;
-    this.nextOrder += 1;
+    if (this.nextOrder >= Number.MAX_SAFE_INTEGER) {
+      // Retain chronological ties while making room for another safe order value.
+      const chronological = [...this.list].sort((a, b) => a.order - b.order);
+      const compacted = chronological.map((saved, order) => ({ ...saved, order }));
+      this.list = rankEntries([...compacted, { ...entry, order: compacted.length }]);
+      this.nextOrder = compacted.length + 1;
+    } else {
+      this.list = ranked;
+      this.nextOrder += 1;
+    }
     this.persist();
     return { status: 'ranked', name: validation.name, score };
   }

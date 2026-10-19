@@ -157,3 +157,8 @@ Extend the MVP with T008–T012 to make the top ten persistent and visible on bo
 - `src/game.ts` should not change unless a confirmed regression requires it.
 - No backend, account, global leaderboard, external melody, MIDI parser, new fruit, or new scoring rule belongs to Feature 006.
 - Source, tests, comments, commits, and documentation remain in English; the original German requests remain quoted in `docs/prompt-log.md`.
+
+## Phase 7: Convergence
+
+- [X] T023 Reject names consisting only of invisible or control characters in `src/highscore.ts` while preserving valid 1–16 visible-character names, including emoji grapheme clusters; add focused cases in `src/highscore.test.ts` per FR-002 (partial).
+- [X] T024 Keep `HighscoreBoard` submission orders and persisted `nextOrder` within nonnegative safe integers when a valid stored counter reaches `Number.MAX_SAFE_INTEGER`; preserve stable tie ordering and add a regression case in `src/highscore.test.ts` per FR-004, T002, and T009 (partial).

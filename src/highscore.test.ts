@@ -66,6 +66,9 @@ describe('named result submission', () => {
   it('trims names and rejects blank or overlong input while treating markup as text', () => {
     expect(validatePlayerName('  Ada  ')).toEqual({ name: 'Ada' });
     expect(validatePlayerName('   ')).toEqual({ error: 'Enter a name.' });
+    expect(validatePlayerName('\u200b\u200d\u2060')).toEqual({ error: 'Enter a name.' });
+    expect(validatePlayerName('\u0000\u0007')).toEqual({ error: 'Enter a name.' });
+    expect(validatePlayerName('\u0301\ufe0f')).toEqual({ error: 'Enter a name.' });
     expect(validatePlayerName('abcdefghijklmnopq')).toEqual({ error: 'Use 16 characters or fewer.' });
     expect(validatePlayerName('👩‍🚀'.repeat(16))).toEqual({ name: '👩‍🚀'.repeat(16) });
     expect(validatePlayerName('👩‍🚀'.repeat(17))).toEqual({ error: 'Use 16 characters or fewer.' });
@@ -131,6 +134,24 @@ describe('local top-ten ranking', () => {
     expect(board.entries.map((entry) => entry.name)).toEqual(['Ada', '<img>']);
     expect(board.submit('Bob', 80).status).toBe('ranked');
     expect(board.entries.find((entry) => entry.name === 'Bob')?.order).toBe(6);
+  });
+
+  it('keeps a safe counter and stable ties at the maximum saved order', () => {
+    const fake = rankingStore({
+      [HIGHSCORES_KEY]: JSON.stringify({ version: 2, nextOrder: Number.MAX_SAFE_INTEGER, entries: [
+        { name: 'First', score: 50, order: Number.MAX_SAFE_INTEGER - 2 },
+        { name: 'Second', score: 50, order: Number.MAX_SAFE_INTEGER - 1 },
+      ] }),
+    });
+    const board = new HighscoreBoard(() => fake.storage, 0);
+    expect(board.submit('Third', 50).status).toBe('ranked');
+    expect(board.entries.map(({ name }) => name)).toEqual(['First', 'Second', 'Third']);
+    const saved = JSON.parse(fake.values.get(HIGHSCORES_KEY)!);
+    expect(Number.isSafeInteger(saved.nextOrder)).toBe(true);
+    expect(saved.nextOrder).toBeGreaterThan(Math.max(...saved.entries.map(({ order }: { order: number }) => order)));
+    expect(new HighscoreBoard(() => fake.storage, 0).entries).toEqual(board.entries);
+    expect(board.submit('Fourth', 50).status).toBe('ranked');
+    expect(board.entries.map(({ name }) => name)).toEqual(['First', 'Second', 'Third', 'Fourth']);
   });
 
   it('falls back to the prior best on corrupt JSON and keeps page-memory changes when storage fails', () => {
