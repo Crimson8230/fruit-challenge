@@ -9,15 +9,17 @@ import {
   type Fruit,
   type Game,
 } from './game';
+import { classifyTransition, type PresentationEvent, type TransitionSource } from './presentation';
+import { SoundController } from './audio';
 
 const app = document.querySelector<HTMLElement>('#app');
 if (!app) throw new Error('Game mount element is missing');
 
-const fruitDetails: Record<Fruit, { label: string; icon: string }> = {
-  apple: { label: 'Apple', icon: '🍎' },
-  banana: { label: 'Banana', icon: '🍌' },
-  grape: { label: 'Grape', icon: '🍇' },
-  orange: { label: 'Orange', icon: '🍊' },
+const fruitDetails: Record<Fruit, { label: string; image: string }> = {
+  apple: { label: 'Apple', image: '/fruits/apple.svg' },
+  banana: { label: 'Banana', image: '/fruits/banana.svg' },
+  grape: { label: 'Grape', image: '/fruits/grape.svg' },
+  orange: { label: 'Orange', image: '/fruits/orange.svg' },
 };
 
 let game: Game = createReadyGame();
@@ -26,12 +28,14 @@ let frameId: number | null = null;
 let staticTimer: number | null = null;
 let roundToken = 0;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const sound = new SoundController();
 
 app.innerHTML = `
   <section class="game" aria-labelledby="game-title">
     <header class="game-header">
       <p class="eyebrow">Fruit memory game</p>
-      <h1 id="game-title">Fruit Challenge</h1>
+      <button class="sound-button" id="sound-button" data-action="sound" type="button" aria-label="Sound" aria-pressed="false">Sound on</button>
+      <h1 id="game-title">Fruit Rush</h1>
       <p class="instructions">Read the fruits from right to left. Choose them as soon as the round starts. Wrong choices and missed fruits cost a life.</p>
     </header>
     <div class="status-row" aria-live="polite">
@@ -43,43 +47,131 @@ app.innerHTML = `
     </div>
     <div class="playfield" aria-label="Fruit playfield">
       <div id="fruit-stage"></div>
+      <div class="ready-panel" id="ready-panel">
+        <strong>Ready to rush?</strong>
+        <span>Start a round, then pick the rightmost fruit first.</span>
+      </div>
       <div class="game-over" id="game-over" role="alertdialog" aria-labelledby="game-over-title" hidden>
         <h2 id="game-over-title">Game Over</h2>
-        <p>Final score: <strong id="final-score">0</strong></p>
-        <p>Rounds reached: <strong id="final-round">1</strong></p>
+        <p class="final-stat">Final score <strong id="final-score">0</strong></p>
+        <p class="final-stat">Rounds reached <strong id="final-round">1</strong></p>
         <button class="action-button" data-action="restart">Play Again</button>
       </div>
       <p class="playfield-caption" id="caption"></p>
     </div>
     <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+    <div class="action-row">
+      <button class="action-button" id="start-button" data-action="start">Start Game</button>
+    </div>
     <div class="fruit-controls" role="group" aria-label="Fruit choices">
       ${FRUITS.map((fruit) => {
-        const { label, icon } = fruitDetails[fruit];
-        return `<button class="fruit-button" data-fruit="${fruit}" disabled><span aria-hidden="true">${icon}</span><span>${label}</span></button>`;
+        const { label, image } = fruitDetails[fruit];
+        return `<button class="fruit-button" data-fruit="${fruit}" disabled><img src="${image}" alt="" aria-hidden="true"><span>${label}</span></button>`;
       }).join('')}
-    </div>
-    <div class="action-row">
-      <button class="action-button" id="start-button" data-action="start">Start</button>
     </div>
   </section>
 `;
 
 const scoreElement = app.querySelector<HTMLElement>('#score')!;
+const scorePanel = app.querySelector<HTMLElement>('.score')!;
 const livesElement = app.querySelector<HTMLElement>('#lives')!;
 const livesPanel = app.querySelector<HTMLElement>('#lives-panel')!;
 const roundElement = app.querySelector<HTMLElement>('#round-number')!;
 const progressElement = app.querySelector<HTMLElement>('#progress')!;
 const speedElement = app.querySelector<HTMLElement>('#speed')!;
 const stageElement = app.querySelector<HTMLElement>('#fruit-stage')!;
+const playfieldElement = app.querySelector<HTMLElement>('.playfield')!;
+const readyPanel = app.querySelector<HTMLElement>('#ready-panel')!;
 const gameOverElement = app.querySelector<HTMLElement>('#game-over')!;
 const finalScoreElement = app.querySelector<HTMLElement>('#final-score')!;
 const finalRoundElement = app.querySelector<HTMLElement>('#final-round')!;
 const captionElement = app.querySelector<HTMLElement>('#caption')!;
 const feedbackElement = app.querySelector<HTMLElement>('#feedback')!;
 const startButton = app.querySelector<HTMLButtonElement>('#start-button')!;
+const soundButton = app.querySelector<HTMLButtonElement>('#sound-button')!;
 const actionRowElement = app.querySelector<HTMLElement>('.action-row')!;
 const restartButton = app.querySelector<HTMLButtonElement>('[data-action="restart"]')!;
 const fruitButtons = Array.from(app.querySelectorAll<HTMLButtonElement>('.fruit-button'));
+const effectTimers = new Map<HTMLElement, number>();
+let temporaryOverlay: HTMLElement | null = null;
+let overlayTimer: number | null = null;
+
+function renderSoundState(): void {
+  soundButton.textContent = sound.isMuted ? 'Sound off' : 'Sound on';
+  soundButton.setAttribute('aria-pressed', String(sound.isMuted));
+}
+
+function flash(element: HTMLElement, effect: string, duration: number): void {
+  const previousTimer = effectTimers.get(element);
+  if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+  element.classList.remove('effect-correct', 'effect-incorrect', 'effect-score', 'effect-life', 'effect-over');
+  void element.offsetWidth;
+  element.classList.add(effect);
+  const timer = window.setTimeout(() => {
+    element.classList.remove(effect);
+    effectTimers.delete(element);
+  }, duration);
+  effectTimers.set(element, timer);
+}
+
+function clearVisualEffects(): void {
+  for (const [element, timer] of effectTimers) {
+    window.clearTimeout(timer);
+    element.classList.remove('effect-correct', 'effect-incorrect', 'effect-score', 'effect-life', 'effect-over');
+  }
+  effectTimers.clear();
+  if (overlayTimer !== null) window.clearTimeout(overlayTimer);
+  overlayTimer = null;
+  temporaryOverlay?.remove();
+  temporaryOverlay = null;
+}
+
+function showTemporaryOverlay(element: HTMLElement, duration: number): void {
+  if (overlayTimer !== null) window.clearTimeout(overlayTimer);
+  temporaryOverlay?.remove();
+  temporaryOverlay = element;
+  playfieldElement.append(element);
+  overlayTimer = window.setTimeout(() => {
+    element.remove();
+    if (temporaryOverlay === element) temporaryOverlay = null;
+    overlayTimer = null;
+  }, duration);
+}
+
+function presentTransition(event: PresentationEvent, echo: { image: string; x: number; y: number } | null): void {
+  feedbackElement.dataset.event = event.kind;
+  if (event.inputOutcome !== 'missed' && event.fruit) {
+    const button = fruitButtons.find((item) => item.dataset.fruit === event.fruit);
+    if (button) flash(button, event.inputOutcome === 'correct' ? 'effect-correct' : 'effect-incorrect', 280);
+  }
+  if (event.scoreGain > 0) flash(scorePanel, 'effect-score', 320);
+  if (event.livesLost > 0) flash(livesPanel, 'effect-life', 300);
+
+  if (event.inputOutcome === 'correct' && event.kind === 'correct' && event.positionIndex !== null) {
+    stageElement.querySelectorAll<HTMLElement>('.row-fruit')[event.positionIndex]?.classList.add('vanishing');
+  }
+  if (event.kind === 'round-complete') {
+    const overlay = document.createElement('div');
+    overlay.className = 'round-result';
+    overlay.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('div');
+    label.className = 'round-celebration';
+    label.textContent = 'Round complete! +25';
+    overlay.append(label);
+    if (echo && !reducedMotion.matches) {
+      const image = document.createElement('img');
+      image.className = 'fruit-echo';
+      image.src = echo.image;
+      image.alt = '';
+      image.style.left = `${echo.x}px`;
+      image.style.top = `${echo.y}px`;
+      overlay.append(image);
+    }
+    showTemporaryOverlay(overlay, 600);
+  }
+  if (event.kind === 'game-over') flash(gameOverElement, 'effect-over', 320);
+  sound.play(event.kind);
+}
 
 function render(): void {
   const difficulty = getRoundDifficulty(game.roundNumber);
@@ -107,6 +199,7 @@ function render(): void {
       : '';
   startButton.hidden = game.status !== 'ready';
   actionRowElement.hidden = game.status !== 'ready';
+  readyPanel.hidden = game.status !== 'ready';
   gameOverElement.hidden = game.status !== 'game-over';
   finalScoreElement.textContent = String(game.score);
   finalRoundElement.textContent = String(game.roundNumber);
@@ -139,6 +232,8 @@ function acceptGame(next: Game): boolean {
   game = next;
   if (game.status === 'game-over') {
     stopMotion();
+    clearVisualEffects();
+    sound.stopActive();
     stageElement.innerHTML = '';
     render();
     restartButton.focus();
@@ -150,6 +245,27 @@ function acceptGame(next: Game): boolean {
   }
   render();
   return true;
+}
+
+function acceptTransition(next: Game, source: TransitionSource): boolean {
+  const event = classifyTransition(game, next, source);
+  let echo: { image: string; x: number; y: number } | null = null;
+  if (event?.kind === 'round-complete' && event.positionIndex !== null) {
+    const slot = stageElement.querySelectorAll<HTMLElement>('.row-fruit')[event.positionIndex];
+    const image = slot?.querySelector<HTMLImageElement>('img');
+    if (image) {
+      const imageRect = image.getBoundingClientRect();
+      const fieldRect = playfieldElement.getBoundingClientRect();
+      echo = {
+        image: image.src,
+        x: Math.max(8, Math.min(imageRect.left - fieldRect.left, fieldRect.width - 64)),
+        y: Math.max(8, Math.min(imageRect.top - fieldRect.top, fieldRect.height - 64)),
+      };
+    }
+  }
+  const continues = acceptGame(next);
+  if (event) presentTransition(event, echo);
+  return continues;
 }
 
 function resolvePending(token: number, force = false): void {
@@ -164,7 +280,7 @@ function resolvePending(token: number, force = false): void {
   for (const position of pending) {
     if (token !== roundToken || game.status !== 'playing') return;
     if (!force && slots[position.index].getBoundingClientRect().left < boundary) return;
-    if (!acceptGame(missFruit(game, position.index))) return;
+    if (!acceptTransition(missFruit(game, position.index), { kind: 'miss', index: position.index })) return;
   }
 }
 
@@ -209,8 +325,8 @@ function beginCurrentRound(): void {
   stopMotion();
   if (game.status !== 'playing' || !game.round) return;
   stageElement.innerHTML = `<div class="fruit-row" aria-label="Fruit sequence">${game.round.positions.map(({ fruit }) => {
-    const { label, icon } = fruitDetails[fruit];
-    return `<div class="row-fruit" aria-label="${label}"><span class="fruit-icon" aria-hidden="true">${icon}</span><span class="fruit-name">${label}</span></div>`;
+    const { label, image } = fruitDetails[fruit];
+    return `<div class="row-fruit" aria-label="${label}"><img class="fruit-icon" src="${image}" alt="" aria-hidden="true"><span class="fruit-name">${label}</span></div>`;
   }).join('')}</div>`;
   render();
   const row = stageElement.querySelector<HTMLElement>('.fruit-row')!;
@@ -221,7 +337,7 @@ function beginCurrentRound(): void {
       if (token !== roundToken || game.status !== 'playing' || !game.round) return;
       for (const position of game.round.positions.filter((item) => item.status === 'pending')) {
         if (token !== roundToken || game.status !== 'playing') return;
-        if (!acceptGame(missFruit(game, position.index))) return;
+        if (!acceptTransition(missFruit(game, position.index), { kind: 'miss', index: position.index })) return;
       }
     }, 3000);
   } else {
@@ -236,23 +352,38 @@ app.addEventListener('click', (event) => {
   if (!button || button.disabled) return;
 
   if (button.dataset.action === 'start' && game.status === 'ready') {
+    clearVisualEffects();
+    sound.unlockFromGesture();
     game = startGame();
     beginCurrentRound();
     return;
   }
   if (button.dataset.action === 'restart' && game.status === 'game-over') {
+    clearVisualEffects();
+    sound.stopActive();
+    sound.unlockFromGesture();
     game = startGame();
     beginCurrentRound();
     return;
   }
 
+  if (button.dataset.action === 'sound') {
+    sound.setMuted(!sound.isMuted);
+    if (!sound.isMuted) sound.unlockFromGesture();
+    renderSoundState();
+    return;
+  }
+
   const fruit = button.dataset.fruit as Fruit | undefined;
   if (fruit && FRUITS.includes(fruit) && game.status === 'playing') {
+    sound.unlockFromGesture();
     const token = roundToken;
     if (activeAnimation) resolvePending(token);
     if (token !== roundToken || game.status !== 'playing') return;
-    acceptGame(chooseFruit(game, fruit));
+    acceptTransition(chooseFruit(game, fruit), { kind: 'choice', fruit });
   }
 });
 
 render();
+renderSoundState();
+window.addEventListener('pagehide', () => sound.dispose());

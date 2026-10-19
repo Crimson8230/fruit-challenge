@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Banana">
+  <path d="M10 42C24 52 45 46 57 15c-2 24-16 43-34 43-7 0-13-3-17-8Z" fill="#ffd34f" stroke="#9d642f" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M10 42c15 6 33-3 47-27C45 46 24 52 10 42Z" fill="#fff09a" stroke="#9d642f" stroke-width="2" stroke-linejoin="round"/>
+  <path d="m55 15 3-5 3 1-2 6" fill="#7f5338" stroke="#69422e" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="m6 50-3 3 4 3 4-3" fill="#7f5338" stroke="#69422e" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M22 51c13 1 24-10 31-24" fill="none" stroke="#e8ad36" stroke-width="2" stroke-linecap="round"/>
+</svg>
