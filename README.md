@@ -38,9 +38,9 @@ Your **highscore** rises whenever a run beats your prior best. The Start and Gam
 - `src/main.ts` and `src/style.css`: screen, input, movement, layout, and effects.
 - `src/highscore.ts`: browser-local personal best; `src/presentation.ts` and `src/audio.ts`: visual event classification and optional sound.
 - `public/fruits/`: the four local SVG illustrations.
-- `specs/`: Feature 001–005 specifications, plans, tasks, and development logs.
-- `docs/vibe-coding-experience.md`: evidence-based university project account.
+- `specs/`: feature specifications, plans, tasks, and development logs.
+- `docs/vibe-coding-experience.md`: evidence-based university project account; `docs/prompt-log.md`: preserved prompt wording and source notes.
 
 ## Vibe Coding experience
 
-Spec-Kit structured the work from core play through final polish. The separate [Vibe Coding experience](docs/vibe-coding-experience.md) connects documented prompts, failed attempts, corrections, and lessons to the feature logs. It marks personal experience that is not recorded in the repository as TODO rather than inventing it.
+Spec-Kit structured the work from core play through final polish. The separate [Vibe Coding experience](docs/vibe-coding-experience.md) connects documented prompts, failed attempts, corrections, and lessons to the feature logs. The [prompt log](docs/prompt-log.md) collects preserved prompt text and identifies missing original wording. Personal experience that is not recorded in the repository remains marked as TODO rather than invented.
