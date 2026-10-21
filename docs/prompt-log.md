@@ -1,6 +1,6 @@
 # Fruit Rush prompt log
 
-This document collects the individual development prompts that can be recovered from the repository and the available conversation. It is intended to accompany the [Vibe Coding experience](vibe-coding-experience.md) for the university submission.
+This document collects the individual development prompts that can be recovered from the repository and the available conversation. 
 
 ## How to read this log
 

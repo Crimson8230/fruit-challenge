@@ -39,3 +39,8 @@ Your **highscore** rises whenever a run beats your prior best. The Start and Gam
 - `src/highscore.ts`: browser-local personal best; `src/presentation.ts` and `src/audio.ts`: visual event classification and optional sound.
 - `public/fruits/`: the four local SVG illustrations.
 - `specs/`: feature specifications, plans, tasks, and development logs.
+
+## Docs
+
+- `Erfahrungsbericht – Vibe Coding mit Spec-Kit und Codex`: contains my personal feedback on what it felt like to create an application using only vibe coding.
+- `docs/prompt-log.md`: contains all the individual prompts I used to specify the desired behavior and the paths to all the Spec-Kit prompts.
