@@ -39,4 +39,3 @@ Your **highscore** rises whenever a run beats your prior best. The Start and Gam
 - `src/highscore.ts`: browser-local personal best; `src/presentation.ts` and `src/audio.ts`: visual event classification and optional sound.
 - `public/fruits/`: the four local SVG illustrations.
 - `specs/`: feature specifications, plans, tasks, and development logs.
-- `docs/vibe-coding-experience.md`: evidence-based university project account; `docs/prompt-log.md`: preserved prompt wording and source notes.
